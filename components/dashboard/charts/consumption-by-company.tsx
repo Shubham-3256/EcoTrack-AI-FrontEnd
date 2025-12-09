@@ -1,61 +1,109 @@
 "use client"
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts"
 
-interface ConsumptionData {
+type ConsumptionByCompanyPoint = {
   company: string
   kwh: number
 }
 
-export function ConsumptionByCompanyChart({ data }: { data: ConsumptionData[] }) {
-  const colors = [
-    "hsl(142, 76%, 36%)",
-    "hsl(142, 76%, 46%)",
-    "hsl(142, 76%, 58%)",
-    "hsl(142, 76%, 72%)",
-  ]
+type ChartItem = {
+  name: string
+  value: number
+}
+
+const COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+  "var(--chart-6)",
+]
+
+export function ConsumptionByCompanyChart({
+  data,
+}: {
+  data: ConsumptionByCompanyPoint[]
+}) {
+  // Map domain data → chart-friendly shape
+  const chartData: ChartItem[] = data.map((d) => ({
+    name: d.company,
+    value: d.kwh,
+  }))
+
+  const total = chartData.reduce((sum, item) => sum + item.value, 0)
 
   return (
-    <Card className="shadow-sm">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-xl font-semibold">Energy Distribution</CardTitle>
-        <CardDescription>Breakdown of total consumption by company</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={290}>
-          <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              labelLine={false}
-              label={({ company, percent }) =>
-                `${company} ${(percent * 100).toFixed(0)}%`
-              }
-              outerRadius={110}
-              dataKey="kwh"
-            >
-              {data.map((_, i) => (
-                <Cell key={i} fill={colors[i % colors.length]} />
-              ))}
-            </Pie>
+    <Card className="p-6 h-full flex flex-col">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-semibold">Consumption by Company</h2>
+          <p className="text-sm text-muted-foreground">
+            Distribution of total kWh usage
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-muted-foreground">Total</p>
+          <p className="font-semibold">{total.toFixed(2)} kWh</p>
+        </div>
+      </div>
 
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "var(--card)",
-                border: "1px solid var(--border)",
-                borderRadius: "0.5rem",
-              }}
-              formatter={(value: any) => [`${value.toFixed(2)} kWh`, "Usage"]}
-            />
-
-            <Legend
-              formatter={(value) => <span className="text-sm">{value}</span>}
-            />
-          </PieChart>
-        </ResponsiveContainer>
-      </CardContent>
+      <div className="flex-1 min-h-[260px]">
+        {chartData.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+            No data available
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={chartData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={90}
+                paddingAngle={3}
+              >
+                {chartData.map((entry, index) => (
+                  <Cell
+                    key={`cell-${entry.name}-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={(value: any, _name, _props) => [
+                  `${Number(value).toFixed(2)} kWh`,
+                  "Consumption",
+                ]}
+                contentStyle={{
+                  backgroundColor: "var(--card)",
+                  borderRadius: "0.5rem",
+                  border: "1px solid var(--border)",
+                  fontSize: "0.8rem",
+                }}
+              />
+              <Legend
+                layout="horizontal"
+                verticalAlign="bottom"
+                align="center"
+                wrapperStyle={{ fontSize: "0.75rem" }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        )}
+      </div>
     </Card>
   )
 }
