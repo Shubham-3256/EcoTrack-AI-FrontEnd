@@ -43,14 +43,18 @@ export function AnalyticsDashboard({
         if (!token) throw new Error("Missing token")
 
         // 1) Fetch history (actual usage)
-        const historyUrl = new URL("http://localhost:5000/history")
-        if (selectedCompany) historyUrl.searchParams.append("company", selectedCompany)
-        if (dateFrom) historyUrl.searchParams.append("from", dateFrom)
-        if (dateTo) historyUrl.searchParams.append("to", dateTo)
+        const historyParams = new URLSearchParams()
+if (selectedCompany) historyParams.append("company", selectedCompany)
+if (dateFrom) historyParams.append("from", dateFrom)
+if (dateTo) historyParams.append("to", dateTo)
 
-        const historyRes = await fetch(historyUrl, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+const historyQs = historyParams.toString()
+const historyUrl = `/api/history${historyQs ? `?${historyQs}` : ""}`
+
+const historyRes = await fetch(historyUrl, {
+  headers: { Authorization: `Bearer ${token}` },
+})
+
         if (!historyRes.ok) throw new Error("Failed to fetch history")
         const history = await historyRes.json()
 
@@ -82,7 +86,7 @@ export function AnalyticsDashboard({
         // 2) Fetch predictions
         let predictions: Prediction[] = []
         try {
-          const predictRes = await fetch("http://localhost:5000/predict-trend", {
+          const predictRes = await fetch("/api/predict-trend", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

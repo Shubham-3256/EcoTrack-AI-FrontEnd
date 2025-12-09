@@ -33,14 +33,18 @@ export function EnergyHistoryAdvanced({
     const fetchHistory = async () => {
       try {
         const token = localStorage.getItem("token")
-        const url = new URL("http://localhost:5000/history")
-        if (selectedCompany) url.searchParams.append("company", selectedCompany)
-        if (dateFrom) url.searchParams.append("from", dateFrom)
-        if (dateTo) url.searchParams.append("to", dateTo)
+        const params = new URLSearchParams()
+if (selectedCompany) params.append("company", selectedCompany)
+if (dateFrom) params.append("from", dateFrom)
+if (dateTo) params.append("to", dateTo)
 
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+const qs = params.toString()
+const url = `/api/history${qs ? `?${qs}` : ""}`
+
+const res = await fetch(url, {
+  headers: { Authorization: `Bearer ${token}` },
+})
+
         if (!res.ok) throw new Error("Failed to fetch")
         const data = await res.json()
         setHistory(
@@ -60,7 +64,7 @@ export function EnergyHistoryAdvanced({
     if (!confirm("Delete this record?")) return
     try {
       const token = localStorage.getItem("token")
-      const res = await fetch("http://localhost:5000/delete-energy-usage", {
+      const res = await fetch("/api/delete-energy-usage", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -84,7 +88,7 @@ export function EnergyHistoryAdvanced({
   const handleSaveEdit = async (id: number) => {
     try {
       const token = localStorage.getItem("token")
-      const res = await fetch("http://localhost:5000/update-energy-usage", {
+      const res = await fetch("/api/update-energy-usage", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -39,7 +39,7 @@ export function AdvancedPredictions({ selectedCompany }: { selectedCompany?: str
         const token = localStorage.getItem("token")
         if (!token) throw new Error("Missing auth token")
 
-        const res = await fetch("http://localhost:5000/predict-trend", {
+        const res = await fetch("/api/predict-trend", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

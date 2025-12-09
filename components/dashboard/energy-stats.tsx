@@ -30,12 +30,16 @@ export function EnergyStats({
     const fetchStats = async () => {
       try {
         const token = localStorage.getItem("token")
-        const url = new URL("http://localhost:5000/history")
-        if (selectedCompany) url.searchParams.append("company", selectedCompany)
+        const params = new URLSearchParams()
+if (selectedCompany) params.append("company", selectedCompany)
 
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+const qs = params.toString()
+const url = `/api/history${qs ? `?${qs}` : ""}`
+
+const res = await fetch(url, {
+  headers: { Authorization: `Bearer ${token}` },
+})
+
         if (!res.ok) throw new Error("Failed to fetch")
         const data = await res.json()
 
@@ -48,7 +52,7 @@ export function EnergyStats({
         const totalKwh = data.reduce((sum: number, item: any) => sum + item.kwh, 0)
 
         // Calculate emissions using average factor (0.42 kg CO2/kWh)
-        const emissionResponse = await fetch("http://localhost:5000/calculate-emission", {
+        const emissionResponse = await fetch("/api/calculate-emission", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ kwh: totalKwh }),
