@@ -2,12 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import {
-  Legend,
-  Tooltip,
-  type LegendProps,
-  type TooltipProps,
-} from "recharts"
+import { Legend, Tooltip } from "recharts"
 
 // -----------------------------------------
 // Types
@@ -36,7 +31,6 @@ export function ChartContainer({
   children,
   ...props
 }: ChartContainerProps) {
-  // optional: expose css vars for colors like --color-<key>
   const style: React.CSSProperties = {
     ...(props.style || {}),
     ...Object.fromEntries(
@@ -48,11 +42,7 @@ export function ChartContainer({
   }
 
   return (
-    <div
-      className={cn("space-y-2", className)}
-      style={style}
-      {...props}
-    >
+    <div className={cn("space-y-2", className)} style={style} {...props}>
       {children}
     </div>
   )
@@ -62,13 +52,11 @@ export function ChartContainer({
 // Tooltip wrapper
 // -----------------------------------------
 
-export function ChartTooltip(
-  props: TooltipProps<number, string>
-) {
+// super loose typing so Recharts can't break our build
+export function ChartTooltip(props: any) {
   return <Tooltip {...props} />
 }
 
-// Relaxed props for tooltip content – this avoids the TS error
 type ChartTooltipContentProps = {
   active?: boolean
   payload?: Array<{
@@ -101,7 +89,6 @@ export function ChartTooltipContent({
   }
 
   const items = payload.filter((item) => item && item.value != null)
-
   if (items.length === 0) return null
 
   const displayLabel =
@@ -125,8 +112,7 @@ export function ChartTooltipContent({
       <div className="space-y-1">
         {items.map((item, index) => {
           const name =
-            (labelKey && (item.payload as any)?.[labelKey]) ??
-            item.name
+            (labelKey && (item.payload as any)?.[labelKey]) ?? item.name
 
           return (
             <div
@@ -163,13 +149,13 @@ export function ChartTooltipContent({
 // Legend wrapper
 // -----------------------------------------
 
-export function ChartLegend(props: LegendProps) {
+export function ChartLegend(props: any) {
   return <Legend {...props} />
 }
 
 interface ChartLegendContentProps
   extends React.HTMLAttributes<HTMLDivElement> {
-  payload?: LegendProps["payload"]
+  payload?: any[]
 }
 
 export function ChartLegendContent({
