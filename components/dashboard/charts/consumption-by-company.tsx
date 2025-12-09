@@ -10,7 +10,7 @@ import {
   ResponsiveContainer,
 } from "recharts"
 
-type ConsumptionByCompanyPoint = {
+type ConsumptionData = {
   company: string
   kwh: number
 }
@@ -32,12 +32,12 @@ const COLORS = [
 export function ConsumptionByCompanyChart({
   data,
 }: {
-  data: ConsumptionByCompanyPoint[]
+  data: ConsumptionData[]
 }) {
-  // Map domain data → chart-friendly shape
-  const chartData: ChartItem[] = data.map((d) => ({
-    name: d.company,
-    value: d.kwh,
+  // 🔁 Map domain data → chart data
+  const chartData: ChartItem[] = data.map((item) => ({
+    name: item.company,
+    value: item.kwh,
   }))
 
   const total = chartData.reduce((sum, item) => sum + item.value, 0)
@@ -48,7 +48,7 @@ export function ConsumptionByCompanyChart({
         <div>
           <h2 className="text-lg font-semibold">Consumption by Company</h2>
           <p className="text-sm text-muted-foreground">
-            Distribution of total kWh usage
+            Distribution of total energy usage (kWh)
           </p>
         </div>
         <div className="text-right">
@@ -66,7 +66,7 @@ export function ConsumptionByCompanyChart({
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
-                data={chartData}
+                data={chartData}          // ✅ use chartData, not raw data
                 dataKey="value"
                 nameKey="name"
                 cx="50%"
@@ -83,7 +83,7 @@ export function ConsumptionByCompanyChart({
                 ))}
               </Pie>
               <Tooltip
-                formatter={(value: any, _name, _props) => [
+                formatter={(value: any) => [
                   `${Number(value).toFixed(2)} kWh`,
                   "Consumption",
                 ]}
