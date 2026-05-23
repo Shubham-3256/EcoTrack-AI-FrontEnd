@@ -241,29 +241,37 @@ export function CompanyFilter({
 
         {/* Company list */}
         {companies.map(
-          (company) => (
+  (company: any, index) => {
 
-            <Button
-              key={company}
+    const companyName =
+      typeof company === "string"
+        ? company
+        : company?.name ||
+          company?.company ||
+          `Company-${index}`
 
-              onClick={() =>
-                handleSelect(
-                  company
-                )
-              }
+    return (
 
-              variant={
-                selected === company
-                  ? "default"
-                  : "outline"
-              }
+      <Button
+        key={`${companyName}-${index}`}
 
-              size="sm"
-            >
-              {company}
-            </Button>
-          )
-        )}
+        onClick={() =>
+          handleSelect(companyName)
+        }
+
+        variant={
+          selected === companyName
+            ? "default"
+            : "outline"
+        }
+
+        size="sm"
+      >
+        {String(companyName)}
+      </Button>
+    )
+  }
+)}
       </div>
     </Card>
   )
