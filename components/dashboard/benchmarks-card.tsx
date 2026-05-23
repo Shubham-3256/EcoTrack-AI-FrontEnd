@@ -72,6 +72,9 @@ export function BenchmarksCard({
 
   useEffect(() => {
 
+    const controller =
+      new AbortController()
+
     const fetchBenchmarks =
       async () => {
 
@@ -116,6 +119,9 @@ export function BenchmarksCard({
                 Authorization:
                   `Bearer ${token}`,
               },
+
+              signal:
+                controller.signal,
             }
           )
 
@@ -128,30 +134,78 @@ export function BenchmarksCard({
           const json =
             await res.json()
 
-          setData(
+          // =========================
+          // SAFE NORMALIZATION
+          // =========================
+
+          const normalized =
             Array.isArray(
-              json.benchmarks
+              json?.benchmarks
             )
-              ? json.benchmarks
+              ? json.benchmarks.map(
+                  (item: any) => ({
+
+                    company:
+                      String(
+                        item?.company ||
+                        item?.name ||
+                        "Unknown"
+                      ),
+
+                    total_kwh:
+                      Number(
+                        item?.total_kwh || 0
+                      ),
+
+                    co2_kg:
+                      Number(
+                        item?.co2_kg ||
+                        item?.total_co2_kg ||
+                        0
+                      ),
+
+                    avg_daily_kwh:
+                      Number(
+                        item?.avg_daily_kwh || 0
+                      ),
+
+                    pct_of_total:
+                      Number(
+                        item?.pct_of_total || 0
+                      ),
+
+                    days:
+                      Number(
+                        item?.days || 0
+                      ),
+                  })
+                )
               : []
-          )
+
+          setData(normalized)
 
           setTotal(
             Number(
-              json.total_kwh
-            ) || 0
+              json?.total_kwh || 0
+            )
           )
 
         } catch (err: any) {
 
-          console.error(err)
+          if (
+            err?.name !==
+            "AbortError"
+          ) {
 
-          setError(
-            err?.message ||
-            "Failed to load benchmarks"
-          )
+            console.error(err)
 
-          setData([])
+            setError(
+              err?.message ||
+              "Failed to load benchmarks"
+            )
+
+            setData([])
+          }
 
         } finally {
 
@@ -161,15 +215,15 @@ export function BenchmarksCard({
 
     fetchBenchmarks()
 
+    return () => {
+      controller.abort()
+    }
+
   }, [
     dateFrom,
     dateTo,
     refreshTrigger,
   ])
-
-  // =========================
-  // LABELS
-  // =========================
 
   const metricLabels = {
     total_kwh:
@@ -198,24 +252,15 @@ export function BenchmarksCard({
       ? data[0]
       : null
 
-  // =========================
-  // LOADING
-  // =========================
-
   if (loading) {
     return (
       <Card className="p-6">
-
         <div className="h-52 flex items-center justify-center text-sm text-muted-foreground">
           Loading benchmarks...
         </div>
       </Card>
     )
   }
-
-  // =========================
-  // ERROR
-  // =========================
 
   if (error) {
     return (
@@ -225,14 +270,9 @@ export function BenchmarksCard({
     )
   }
 
-  // =========================
-  // UI
-  // =========================
-
   return (
     <Card className="p-6 space-y-4">
 
-      {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
 
         <div className="flex items-center gap-2">
@@ -243,7 +283,6 @@ export function BenchmarksCard({
           </h2>
         </div>
 
-        {/* Metric buttons */}
         <div className="flex gap-1">
 
           {(
@@ -267,14 +306,12 @@ export function BenchmarksCard({
                   : "border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]"
               }`}
             >
-              {/* FIXED BUG */}
               {shortLabels[m]}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Empty state */}
       {data.length === 0 ? (
 
         <p className="text-sm text-center text-muted-foreground py-8">
@@ -284,7 +321,6 @@ export function BenchmarksCard({
       ) : (
 
         <>
-          {/* Top emitter */}
           {topEmitter && (
 
             <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg bg-red-50 border border-red-200 dark:bg-red-950/30 dark:border-red-900">
@@ -294,18 +330,20 @@ export function BenchmarksCard({
               <span className="text-red-600 dark:text-red-400">
 
                 <strong>
-                  {topEmitter.company}
+                  {String(topEmitter.company)}
                 </strong>
 
                 {" "}is your top emitter —{" "}
 
-                {topEmitter.pct_of_total}%
+                {Number(
+                  topEmitter.pct_of_total
+                ).toFixed(1)}%
+
                 {" "}of total usage
               </span>
             </div>
           )}
 
-          {/* Chart */}
           <ResponsiveContainer
             width="100%"
             height={240}
@@ -328,42 +366,11 @@ export function BenchmarksCard({
 
               <XAxis
                 dataKey="company"
-                stroke="var(--color-text-secondary)"
-                tick={{
-                  fill:
-                    "var(--color-text-secondary)",
-                }}
-                style={{
-                  fontSize: "0.7rem",
-                }}
               />
 
-              <YAxis
-                stroke="var(--color-text-secondary)"
-                tick={{
-                  fill:
-                    "var(--color-text-secondary)",
-                }}
-                style={{
-                  fontSize: "0.7rem",
-                }}
-              />
+              <YAxis />
 
               <Tooltip
-                contentStyle={{
-                  background:
-                    "var(--color-background-primary)",
-
-                  border:
-                    "1px solid var(--color-border-secondary)",
-
-                  borderRadius:
-                    "0.5rem",
-
-                  fontSize:
-                    "0.75rem",
-                }}
-
                 formatter={(value: any) => [
 
                   Number(value).toFixed(2),
@@ -379,6 +386,7 @@ export function BenchmarksCard({
 
                 {data.map(
                   (_, index) => (
+
                     <Cell
                       key={index}
                       fill={
@@ -394,12 +402,13 @@ export function BenchmarksCard({
             </BarChart>
           </ResponsiveContainer>
 
-          {/* Footer */}
           <div className="text-xs text-muted-foreground border-t pt-3">
 
             Total tracked usage:
+
             <span className="font-semibold ml-1">
-              {total.toFixed(2)} kWh
+
+              {Number(total).toFixed(2)} kWh
             </span>
           </div>
         </>
