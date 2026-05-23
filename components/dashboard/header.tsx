@@ -22,35 +22,45 @@ export function DashboardHeader({ user }: { user: any }) {
   return (
     <header className="sticky top-0 z-50 border-b bg-background/90 backdrop-blur">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-        {/* Brand + subtitle */}
+
+        {/* Brand */}
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
             <Leaf className="w-5 h-5 text-primary" />
           </div>
+
           <div className="flex flex-col">
-            <span className="text-xl font-bold leading-tight">EcoTrack</span>
+            <span className="text-xl font-bold leading-tight">
+              EcoTrack
+            </span>
+
             <span className="text-xs text-muted-foreground">
               Smart energy & emissions dashboard
             </span>
           </div>
         </div>
 
-        {/* User section */}
+        {/* User */}
         <div className="flex items-center gap-4">
+
           <div className="hidden sm:flex flex-col items-end">
             <p className="text-sm font-medium">
               {user?.name || user?.email || "User"}
             </p>
+
             {user?.email && (
-              <p className="text-xs text-muted-foreground">{user.email}</p>
+              <p className="text-xs text-muted-foreground">
+                {user.email}
+              </p>
             )}
           </div>
 
-          {/* Simple avatar */}
+          {/* Avatar */}
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-xs font-semibold">
             {initials}
           </div>
 
+          {/* Logout */}
           <Button
             variant="ghost"
             size="sm"

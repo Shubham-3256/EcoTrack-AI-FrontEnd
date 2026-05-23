@@ -9,10 +9,23 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
 interface AnalyticsData {
-  consumptionByCompany: Array<{ company: string; kwh: number }>
-  dailyComparison: Array<{ day: string; actual: number; predicted: number | null }>
+  consumptionByCompany: Array<{
+    company: string
+    kwh: number
+  }>
+
+  dailyComparison: Array<{
+    day: string
+    actual: number
+    predicted: number | null
+  }>
+
   currentEmission: number
-  costBreakdown: Array<{ company: string; cost: number }>
+
+  costBreakdown: Array<{
+    company: string
+    cost: number
+  }>
 }
 
 interface Prediction {
@@ -20,216 +33,353 @@ interface Prediction {
   kwh: number | null
 }
 
+interface Props {
+  selectedCompany?: string | null
+  dateFrom?: string | null
+  dateTo?: string | null
+  refreshTrigger: number
+}
+
 export function AnalyticsDashboard({
   selectedCompany,
   dateFrom,
   dateTo,
   refreshTrigger,
-}: {
-  selectedCompany?: string | null
-  dateFrom?: string | null
-  dateTo?: string | null
-  refreshTrigger: number
-}) {
+}: Props) {
+
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
   const [predictionDays, setPredictionDays] = useState(7)
 
   useEffect(() => {
+
     const fetchAnalytics = async () => {
+
       try {
         setLoading(true)
+        setError(null)
+
         const token = localStorage.getItem("token")
-        if (!token) throw new Error("Missing token")
 
-        // 1) Fetch history (actual usage)
+        if (!token) {
+          throw new Error("Authentication token missing")
+        }
+
+        // =========================
+        // HISTORY FETCH
+        // =========================
+
         const historyParams = new URLSearchParams()
-if (selectedCompany) historyParams.append("company", selectedCompany)
-if (dateFrom) historyParams.append("from", dateFrom)
-if (dateTo) historyParams.append("to", dateTo)
 
-const historyQs = historyParams.toString()
-const historyUrl = `/api/history${historyQs ? `?${historyQs}` : ""}`
+        if (selectedCompany) {
+          historyParams.append("company", selectedCompany)
+        }
 
-const historyRes = await fetch(historyUrl, {
-  headers: { Authorization: `Bearer ${token}` },
-})
+        if (dateFrom) {
+          historyParams.append("from", dateFrom)
+        }
 
-        if (!historyRes.ok) throw new Error("Failed to fetch history")
+        if (dateTo) {
+          historyParams.append("to", dateTo)
+        }
+
+        const historyQs = historyParams.toString()
+
+        const historyUrl =
+          `${process.env.NEXT_PUBLIC_API_BASE}/history${
+            historyQs ? `?${historyQs}` : ""
+          }`
+
+        const historyRes = await fetch(historyUrl, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (!historyRes.ok) {
+          throw new Error(`History API failed (${historyRes.status})`)
+        }
+
         const history = await historyRes.json()
 
+        if (!Array.isArray(history)) {
+          throw new Error("Invalid history response")
+        }
+
+        // =========================
+        // PROCESS DATA
+        // =========================
+
         const consumptionByCompany: Record<string, number> = {}
-        const dailyMap: Record<string, { actual: number; predicted: number | null }> = {}
+
+        const dailyMap: Record<
+          string,
+          {
+            actual: number
+            predicted: number | null
+          }
+        > = {}
+
         const costBreakdown: Record<string, number> = {}
+
         let totalEmission = 0
 
         history.forEach((record: any) => {
-          // company-wise consumption & cost
-          consumptionByCompany[record.company] =
-            (consumptionByCompany[record.company] || 0) + record.kwh
-          costBreakdown[record.company] =
-            (costBreakdown[record.company] || 0) + record.kwh * 0.12
 
-          const label = new Date(record.date).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          })
+          const company = record.company || "Unknown"
+
+          const kwh = Number(record.kwh || 0)
+
+          consumptionByCompany[company] =
+            (consumptionByCompany[company] || 0) + kwh
+
+          costBreakdown[company] =
+            (costBreakdown[company] || 0) + kwh * 0.12
+
+          const label = new Date(record.date).toLocaleDateString(
+            "en-US",
+            {
+              month: "short",
+              day: "numeric",
+            }
+          )
 
           if (!dailyMap[label]) {
-            dailyMap[label] = { actual: 0, predicted: null }
+            dailyMap[label] = {
+              actual: 0,
+              predicted: null,
+            }
           }
-          dailyMap[label].actual += record.kwh
 
-          totalEmission += record.kwh * 0.4
+          dailyMap[label].actual += kwh
+
+          totalEmission += kwh * 0.4
         })
 
-        // 2) Fetch predictions
+        // =========================
+        // PREDICTIONS
+        // =========================
+
         let predictions: Prediction[] = []
+
         try {
-          const predictRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/predict-trend`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              days: predictionDays,
-              company: selectedCompany || null,
-            }),
-          })
+
+          const predictRes = await fetch(
+            `${process.env.NEXT_PUBLIC_API_BASE}/predict-trend`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                days: predictionDays,
+                company: selectedCompany || null,
+              }),
+            }
+          )
 
           if (predictRes.ok) {
+
             const predJson = await predictRes.json()
+
             predictions = predJson.predictions || []
-          } else {
-            console.warn("predict-trend request failed with status", predictRes.status)
           }
-        } catch (e) {
-          console.warn("Failed to fetch predictions, continuing with actuals only", e)
+
+        } catch (predictionError) {
+
+          console.warn(
+            "Prediction fetch failed:",
+            predictionError
+          )
         }
 
-        // merge predictions into dailyMap (future days only, no forced 0)
+        // =========================
+        // MERGE PREDICTIONS
+        // =========================
+
         predictions.forEach((p) => {
+
           if (p.kwh == null) return
-          const label = new Date(p.date).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          })
+
+          const label = new Date(p.date).toLocaleDateString(
+            "en-US",
+            {
+              month: "short",
+              day: "numeric",
+            }
+          )
+
           if (!dailyMap[label]) {
-            dailyMap[label] = { actual: 0, predicted: null }
+            dailyMap[label] = {
+              actual: 0,
+              predicted: null,
+            }
           }
+
           dailyMap[label].predicted = p.kwh
         })
 
-        const dailyComparison = Object.entries(dailyMap).map(([day, vals]) => ({
-          day,
-          actual: vals.actual,
-          predicted: vals.predicted ?? null,
-        }))
+        const dailyComparison = Object.entries(dailyMap).map(
+          ([day, vals]) => ({
+            day,
+            actual: vals.actual,
+            predicted: vals.predicted,
+          })
+        )
 
         setData({
-          consumptionByCompany: Object.entries(consumptionByCompany).map(([company, kwh]) => ({
+          consumptionByCompany: Object.entries(
+            consumptionByCompany
+          ).map(([company, kwh]) => ({
             company,
             kwh,
           })),
+
           dailyComparison,
+
           currentEmission: totalEmission,
-          costBreakdown: Object.entries(costBreakdown).map(([company, cost]) => ({
+
+          costBreakdown: Object.entries(
+            costBreakdown
+          ).map(([company, cost]) => ({
             company,
             cost,
           })),
         })
-      } catch (err) {
+
+      } catch (err: any) {
+
         console.error(err)
+
+        setError(
+          err?.message || "Failed to load analytics"
+        )
+
         setData(null)
+
       } finally {
+
         setLoading(false)
       }
     }
 
     fetchAnalytics()
-  }, [refreshTrigger, selectedCompany, dateFrom, dateTo, predictionDays])
+
+  }, [
+    refreshTrigger,
+    selectedCompany,
+    dateFrom,
+    dateTo,
+    predictionDays,
+  ])
+
+  // =========================
+  // LOADING
+  // =========================
 
   if (loading) {
     return (
       <Card className="p-8 text-center">
         <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-muted-foreground">Loading analytics...</p>
-      </Card>
-    )
-  }
 
-  if (!data) {
-    return (
-      <Card className="p-8 text-center">
         <p className="text-muted-foreground">
-          No data available for the selected filters.
+          Loading analytics...
         </p>
       </Card>
     )
   }
 
-  const totalKwh = data.consumptionByCompany.reduce(
-    (sum, c) => sum + c.kwh,
-    0
-  )
+  // =========================
+  // ERROR
+  // =========================
+
+  if (error) {
+    return (
+      <Card className="p-8 text-center text-red-500">
+        {error}
+      </Card>
+    )
+  }
+
+  // =========================
+  // EMPTY
+  // =========================
+
+  if (!data) {
+    return (
+      <Card className="p-8 text-center">
+        <p className="text-muted-foreground">
+          No analytics data available.
+        </p>
+      </Card>
+    )
+  }
+
+  // =========================
+  // TOTALS
+  // =========================
+
+  const totalKwh =
+    data.consumptionByCompany.reduce(
+      (sum, item) => sum + item.kwh,
+      0
+    )
+
+  // =========================
+  // UI
+  // =========================
 
   return (
     <div className="space-y-6">
-      {/* Summary bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
-        <div className="text-muted-foreground">
-          <span className="font-medium">
-            {selectedCompany || "All companies"}
-          </span>
-          {dateFrom || dateTo ? (
-            <>
-              {" · "}
-              <span>
-                Range:{" "}
-                {dateFrom || "start"} – {dateTo || "latest"}
-              </span>
-            </>
-          ) : (
-            <span className="ml-1">· Full history</span>
-          )}
-        </div>
-        <div className="text-muted-foreground">
-          {data.consumptionByCompany.length} companies ·{" "}
-          {totalKwh.toFixed(1)} kWh total
-        </div>
+
+      {/* Prediction buttons */}
+      <div className="flex gap-2">
+        {[7, 14, 30].map((d) => (
+          <Button
+            key={d}
+            size="sm"
+            variant={
+              predictionDays === d
+                ? "default"
+                : "outline"
+            }
+            onClick={() => setPredictionDays(d)}
+          >
+            {d} days
+          </Button>
+        ))}
       </div>
 
-      {/* Top Row: Key Metrics */}
-      <div className="grid md:grid-cols-2 gap-6">
-        <ConsumptionByCompanyChart data={data.consumptionByCompany} />
-        <EmissionGaugeChart emission={data.currentEmission} />
+      {/* Charts */}
+      <div className="grid lg:grid-cols-2 gap-6">
+
+        <ConsumptionByCompanyChart
+          data={data.consumptionByCompany}
+        />
+
+        <EmissionGaugeChart
+          emission={data.currentEmission}
+        />
+
+        <DailyComparisonChart
+          data={data.dailyComparison}
+        />
+
+        <CostBreakdownChart
+          data={data.costBreakdown}
+        />
       </div>
 
-      {/* Second Row: Actual vs Predicted + Day Toggle */}
-      <div className="space-y-2">
-        <div className="flex justify-between items-center px-1">
-          <p className="text-sm text-muted-foreground">
-            Daily actual vs predicted usage
-          </p>
-          <div className="flex gap-2">
-            {[7, 14, 30].map((d) => (
-              <Button
-                key={d}
-                size="sm"
-                variant={predictionDays === d ? "default" : "outline"}
-                onClick={() => setPredictionDays(d)}
-              >
-                {d}d
-              </Button>
-            ))}
-          </div>
-        </div>
-        <DailyComparisonChart data={data.dailyComparison} />
-      </div>
-
-      {/* Third Row: Cost Breakdown */}
-      <CostBreakdownChart data={data.costBreakdown} />
+      {/* Footer */}
+      <Card className="p-4 text-sm text-muted-foreground">
+        Total consumption tracked:
+        <span className="font-semibold ml-2">
+          {totalKwh.toFixed(2)} kWh
+        </span>
+      </Card>
     </div>
   )
 }

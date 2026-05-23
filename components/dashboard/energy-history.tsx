@@ -1,8 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
+
 import { Card } from "@/components/ui/card"
-import { Trash2 } from "lucide-react"
+
+import {
+  Trash2,
+  AlertCircle,
+  Loader2,
+} from "lucide-react"
 
 interface EnergyUsage {
   id: number
@@ -13,76 +19,360 @@ interface EnergyUsage {
   created_at: string
 }
 
-export function EnergyHistory({ refreshTrigger }: { refreshTrigger: number }) {
-  const [history, setHistory] = useState<EnergyUsage[]>([])
-  const [loading, setLoading] = useState(true)
+interface Props {
+  refreshTrigger: number
+}
+
+export function EnergyHistory({
+  refreshTrigger,
+}: Props) {
+
+  const [history, setHistory] =
+    useState<EnergyUsage[]>([])
+
+  const [loading, setLoading] =
+    useState(true)
+
+  const [error, setError] =
+    useState<string | null>(null)
+
+  const [deletingId, setDeletingId] =
+    useState<number | null>(null)
+
+  // =========================
+  // FETCH HISTORY
+  // =========================
 
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const token = localStorage.getItem("token")
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/history`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        if (!res.ok) throw new Error("Failed to fetch")
-        const data = await res.json()
-        setHistory(
-          data.sort((a: EnergyUsage, b: EnergyUsage) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-        )
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
+
+    const controller =
+      new AbortController()
+
+    const fetchHistory =
+      async () => {
+
+        try {
+
+          setLoading(true)
+          setError(null)
+
+          const token =
+            localStorage.getItem("token")
+
+          if (!token) {
+            throw new Error(
+              "Authentication token missing"
+            )
+          }
+
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_API_BASE}/history`,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              signal:
+                controller.signal,
+            }
+          )
+
+          if (!res.ok) {
+            throw new Error(
+              `History API failed (${res.status})`
+            )
+          }
+
+          const data =
+            await res.json()
+
+          if (!Array.isArray(data)) {
+            throw new Error(
+              "Invalid history response"
+            )
+          }
+
+          setHistory(
+            data.sort(
+              (
+                a: EnergyUsage,
+                b: EnergyUsage
+              ) =>
+                new Date(
+                  b.date
+                ).getTime() -
+                new Date(
+                  a.date
+                ).getTime()
+            )
+          )
+
+        } catch (err: any) {
+
+          if (
+            err?.name !==
+            "AbortError"
+          ) {
+
+            console.error(err)
+
+            setError(
+              err?.message ||
+              "Failed to load history"
+            )
+
+            setHistory([])
+          }
+
+        } finally {
+
+          setLoading(false)
+        }
       }
-    }
 
     fetchHistory()
+
+    return () => {
+      controller.abort()
+    }
+
   }, [refreshTrigger])
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this record?")) return
-    try {
-      const token = localStorage.getItem("token")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/delete-energy-usage`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ id }),
-      })
-      if (res.ok) {
-        setHistory(history.filter((h) => h.id !== id))
+  // =========================
+  // DELETE
+  // =========================
+
+  const handleDelete =
+    async (id: number) => {
+
+      if (
+        deletingId !== null
+      ) {
+        return
       }
-    } catch (err) {
-      console.error(err)
+
+      const confirmed =
+        confirm(
+          "Delete this energy usage record?"
+        )
+
+      if (!confirmed) {
+        return
+      }
+
+      try {
+
+        setDeletingId(id)
+
+        const token =
+          localStorage.getItem("token")
+
+        if (!token) {
+          throw new Error(
+            "Authentication token missing"
+          )
+        }
+
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE}/delete-energy-usage`,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              id,
+            }),
+          }
+        )
+
+        if (!res.ok) {
+
+          let body: any = {}
+
+          try {
+
+            body =
+              await res.json()
+
+          } catch {}
+
+          throw new Error(
+            body.error ||
+            "Failed to delete record"
+          )
+        }
+
+        setHistory(
+          history.filter(
+            (h) => h.id !== id
+          )
+        )
+
+      } catch (err: any) {
+
+        console.error(err)
+
+        alert(
+          err?.message ||
+          "Failed to delete record"
+        )
+
+      } finally {
+
+        setDeletingId(null)
+      }
     }
+
+  // =========================
+  // LOADING
+  // =========================
+
+  if (loading) {
+
+    return (
+      <Card className="p-6 h-full">
+
+        <div className="flex items-center gap-2 text-muted-foreground">
+
+          <Loader2 className="w-4 h-4 animate-spin" />
+
+          <span className="text-sm">
+            Loading history...
+          </span>
+        </div>
+      </Card>
+    )
   }
+
+  // =========================
+  // ERROR
+  // =========================
+
+  if (error) {
+
+    return (
+      <Card className="p-6 h-full">
+
+        <div className="flex items-start gap-2 text-red-500">
+
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+
+          <div>
+
+            <p className="font-medium">
+              Failed to load history
+            </p>
+
+            <p className="text-sm">
+              {error}
+            </p>
+          </div>
+        </div>
+      </Card>
+    )
+  }
+
+  // =========================
+  // UI
+  // =========================
 
   return (
     <Card className="p-6 h-full">
-      <h2 className="text-lg font-semibold mb-4">Recent Usage</h2>
+
+      <h2 className="text-lg font-semibold mb-4">
+        Recent Usage
+      </h2>
+
       <div className="space-y-3">
-        {loading ? (
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        ) : history.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No records yet</p>
+
+        {history.length === 0 ? (
+
+          <p className="text-sm text-muted-foreground">
+            No energy records found.
+          </p>
+
         ) : (
-          history.slice(0, 5).map((item) => (
-            <div key={item.id} className="border rounded-lg p-3 space-y-2 text-sm">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="font-medium">{item.company}</p>
-                  <p className="text-xs text-muted-foreground">{item.date}</p>
+
+          history
+            .slice(0, 5)
+            .map((item) => (
+
+              <div
+                key={item.id}
+                className="border rounded-lg p-3 space-y-2 text-sm"
+              >
+
+                <div className="flex justify-between items-start gap-2">
+
+                  <div>
+
+                    <p className="font-medium">
+                      {item.company}
+                    </p>
+
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(
+                        item.date
+                      ).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  {/* Delete */}
+                  <button
+                    onClick={() =>
+                      handleDelete(
+                        item.id
+                      )
+                    }
+
+                    disabled={
+                      deletingId ===
+                      item.id
+                    }
+
+                    className="text-destructive hover:text-destructive/80 disabled:opacity-50"
+                  >
+
+                    {deletingId ===
+                    item.id ? (
+
+                      <Loader2 className="w-4 h-4 animate-spin" />
+
+                    ) : (
+
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                  </button>
                 </div>
-                <button onClick={() => handleDelete(item.id)} className="text-destructive hover:text-destructive/80">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+
+                {/* kWh */}
+                <p className="font-semibold text-primary">
+
+                  {Number(
+                    item.kwh
+                  ).toFixed(2)}{" "}
+
+                  kWh
+                </p>
+
+                {/* Notes */}
+                {item.notes && (
+
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+
+                    {item.notes}
+                  </p>
+                )}
               </div>
-              <p className="font-semibold text-primary">{item.kwh} kWh</p>
-              {item.notes && <p className="text-muted-foreground">{item.notes}</p>}
-            </div>
-          ))
+            ))
         )}
       </div>
     </Card>

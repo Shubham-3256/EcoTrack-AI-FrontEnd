@@ -1,8 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react"
+
 import { Card } from "@/components/ui/card"
-import { Trash2, Edit2, Check, X } from "lucide-react"
+
+import {
+  Trash2,
+  Edit2,
+  Check,
+  X,
+} from "lucide-react"
 
 interface EnergyUsage {
   id: number
@@ -13,182 +20,568 @@ interface EnergyUsage {
   created_at: string
 }
 
+interface Props {
+  refreshTrigger: number
+  selectedCompany?: string | null
+  dateFrom?: string | null
+  dateTo?: string | null
+}
+
 export function EnergyHistoryAdvanced({
   refreshTrigger,
   selectedCompany,
   dateFrom,
   dateTo,
-}: {
-  refreshTrigger: number
-  selectedCompany?: string | null
-  dateFrom?: string | null
-  dateTo?: string | null
-}) {
-  const [history, setHistory] = useState<EnergyUsage[]>([])
-  const [loading, setLoading] = useState(true)
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editData, setEditData] = useState<Partial<EnergyUsage>>({})
+}: Props) {
+
+  const [history, setHistory] =
+    useState<EnergyUsage[]>([])
+
+  const [loading, setLoading] =
+    useState(true)
+
+  const [error, setError] =
+    useState<string | null>(null)
+
+  const [editingId, setEditingId] =
+    useState<number | null>(null)
+
+  const [editData, setEditData] =
+    useState<Partial<EnergyUsage>>({})
+
+  // =========================
+  // FETCH HISTORY
+  // =========================
 
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const token = localStorage.getItem("token")
-        const params = new URLSearchParams()
-if (selectedCompany) params.append("company", selectedCompany)
-if (dateFrom) params.append("from", dateFrom)
-if (dateTo) params.append("to", dateTo)
 
-const qs = params.toString()
-const url = `${process.env.NEXT_PUBLIC_API_BASE}/history${qs ? `?${qs}` : ""}`
+    const controller =
+      new AbortController()
 
-const res = await fetch(url, {
-  headers: { Authorization: `Bearer ${token}` },
-})
+    const fetchHistory =
+      async () => {
 
-        if (!res.ok) throw new Error("Failed to fetch")
-        const data = await res.json()
-        setHistory(
-          data.sort((a: EnergyUsage, b: EnergyUsage) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-        )
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setLoading(false)
+        try {
+
+          setLoading(true)
+          setError(null)
+
+          const token =
+            localStorage.getItem("token")
+
+          if (!token) {
+            throw new Error(
+              "Authentication token missing"
+            )
+          }
+
+          const params =
+            new URLSearchParams()
+
+          if (selectedCompany) {
+            params.append(
+              "company",
+              selectedCompany
+            )
+          }
+
+          if (dateFrom) {
+            params.append(
+              "from",
+              dateFrom
+            )
+          }
+
+          if (dateTo) {
+            params.append(
+              "to",
+              dateTo
+            )
+          }
+
+          const qs =
+            params.toString()
+
+          const url =
+            `${process.env.NEXT_PUBLIC_API_BASE}/history${
+              qs ? `?${qs}` : ""
+            }`
+
+          const res = await fetch(
+            url,
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              signal:
+                controller.signal,
+            }
+          )
+
+          if (!res.ok) {
+            throw new Error(
+              `History API failed (${res.status})`
+            )
+          }
+
+          const data =
+            await res.json()
+
+          if (!Array.isArray(data)) {
+            throw new Error(
+              "Invalid history response"
+            )
+          }
+
+          setHistory(
+            data.sort(
+              (
+                a: EnergyUsage,
+                b: EnergyUsage
+              ) =>
+                new Date(
+                  b.date
+                ).getTime() -
+                new Date(
+                  a.date
+                ).getTime()
+            )
+          )
+
+        } catch (err: any) {
+
+          if (
+            err?.name !==
+            "AbortError"
+          ) {
+
+            console.error(err)
+
+            setError(
+              err?.message ||
+              "Failed to load history"
+            )
+
+            setHistory([])
+          }
+
+        } finally {
+
+          setLoading(false)
+        }
       }
-    }
 
     fetchHistory()
-  }, [refreshTrigger, selectedCompany, dateFrom, dateTo])
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Delete this record?")) return
-    try {
-      const token = localStorage.getItem("token")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/delete-energy-usage`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ id }),
-      })
-      if (res.ok) {
-        setHistory(history.filter((h) => h.id !== id))
-      }
-    } catch (err) {
-      console.error(err)
+    return () => {
+      controller.abort()
     }
-  }
 
-  const handleEdit = (item: EnergyUsage) => {
+  }, [
+    refreshTrigger,
+    selectedCompany,
+    dateFrom,
+    dateTo,
+  ])
+
+  // =========================
+  // DELETE
+  // =========================
+
+  const handleDelete =
+    async (id: number) => {
+
+      if (
+        !confirm(
+          "Delete this record?"
+        )
+      ) {
+        return
+      }
+
+      try {
+
+        const token =
+          localStorage.getItem("token")
+
+        if (!token) {
+          throw new Error(
+            "Authentication token missing"
+          )
+        }
+
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE}/delete-energy-usage`,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              id,
+            }),
+          }
+        )
+
+        if (!res.ok) {
+          throw new Error(
+            `Delete failed (${res.status})`
+          )
+        }
+
+        setHistory(
+          history.filter(
+            (h) => h.id !== id
+          )
+        )
+
+      } catch (err: any) {
+
+        console.error(err)
+
+        alert(
+          err?.message ||
+          "Failed to delete record"
+        )
+      }
+    }
+
+  // =========================
+  // EDIT
+  // =========================
+
+  const handleEdit = (
+    item: EnergyUsage
+  ) => {
+
     setEditingId(item.id)
-    setEditData({ ...item })
+
+    setEditData({
+      ...item,
+    })
   }
 
-  const handleSaveEdit = async (id: number) => {
-    try {
-      const token = localStorage.getItem("token")
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/update-energy-usage`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ id, ...editData }),
-      })
-      if (res.ok) {
-        const updated = await res.json()
-        setHistory(history.map((h) => (h.id === id ? updated.updated : h)))
+  // =========================
+  // SAVE EDIT
+  // =========================
+
+  const handleSaveEdit =
+    async (id: number) => {
+
+      try {
+
+        const token =
+          localStorage.getItem("token")
+
+        if (!token) {
+          throw new Error(
+            "Authentication token missing"
+          )
+        }
+
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_BASE}/update-energy-usage`,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              id,
+
+              ...editData,
+
+              kwh:
+                Number(
+                  editData.kwh
+                ) || 0,
+            }),
+          }
+        )
+
+        if (!res.ok) {
+          throw new Error(
+            `Update failed (${res.status})`
+          )
+        }
+
+        const updated =
+          await res.json()
+
+        setHistory(
+          history.map((h) =>
+            h.id === id
+              ? updated.updated
+              : h
+          )
+        )
+
         setEditingId(null)
+
+        setEditData({})
+
+      } catch (err: any) {
+
+        console.error(err)
+
+        alert(
+          err?.message ||
+          "Failed to update record"
+        )
       }
-    } catch (err) {
-      console.error(err)
     }
+
+  // =========================
+  // CANCEL EDIT
+  // =========================
+
+  const handleCancelEdit =
+    () => {
+
+      setEditingId(null)
+
+      setEditData({})
+    }
+
+  // =========================
+  // LOADING
+  // =========================
+
+  if (loading) {
+    return (
+      <Card className="p-6">
+
+        <div className="text-sm text-muted-foreground">
+          Loading history...
+        </div>
+      </Card>
+    )
   }
 
-  const handleCancelEdit = () => {
-    setEditingId(null)
-    setEditData({})
+  // =========================
+  // ERROR
+  // =========================
+
+  if (error) {
+    return (
+      <Card className="p-6 text-red-500">
+        {error}
+      </Card>
+    )
   }
+
+  // =========================
+  // UI
+  // =========================
 
   return (
     <Card className="p-6">
-      <h2 className="text-lg font-semibold mb-4">Energy Usage History</h2>
+
+      <h2 className="text-lg font-semibold mb-4">
+        Energy Usage History
+      </h2>
+
       <div className="space-y-3 max-h-96 overflow-y-auto">
-        {loading ? (
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        ) : history.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No records found</p>
+
+        {history.length === 0 ? (
+
+          <p className="text-sm text-muted-foreground">
+            No records found.
+          </p>
+
         ) : (
+
           history.map((item) => (
-            <div key={item.id} className="border rounded-lg p-3 space-y-2 text-sm">
+
+            <div
+              key={item.id}
+              className="border rounded-lg p-3 space-y-2 text-sm"
+            >
+
               {editingId === item.id ? (
+
                 <div className="space-y-2">
+
                   <div className="grid grid-cols-2 gap-2">
+
                     <input
                       type="text"
-                      value={editData.company || ""}
-                      onChange={(e) => setEditData({ ...editData, company: e.target.value })}
+
+                      value={
+                        editData.company || ""
+                      }
+
+                      onChange={(e) =>
+                        setEditData({
+                          ...editData,
+                          company:
+                            e.target.value,
+                        })
+                      }
+
                       placeholder="Company"
+
                       className="px-2 py-1 border rounded text-xs border-input bg-background"
                     />
+
                     <input
                       type="date"
-                      value={editData.date || ""}
-                      onChange={(e) => setEditData({ ...editData, date: e.target.value })}
+
+                      value={
+                        editData.date || ""
+                      }
+
+                      onChange={(e) =>
+                        setEditData({
+                          ...editData,
+                          date:
+                            e.target.value,
+                        })
+                      }
+
                       className="px-2 py-1 border rounded text-xs border-input bg-background"
                     />
+
                     <input
                       type="number"
-                      value={editData.kwh || ""}
-                      onChange={(e) => setEditData({ ...editData, kwh: Number.parseFloat(e.target.value) })}
+
+                      value={
+                        editData.kwh || ""
+                      }
+
+                      onChange={(e) =>
+                        setEditData({
+                          ...editData,
+                          kwh:
+                            Number(
+                              e.target.value
+                            ) || 0,
+                        })
+                      }
+
                       placeholder="kWh"
+
                       className="px-2 py-1 border rounded text-xs border-input bg-background"
                     />
                   </div>
+
                   <input
                     type="text"
-                    value={editData.notes || ""}
-                    onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
+
+                    value={
+                      editData.notes || ""
+                    }
+
+                    onChange={(e) =>
+                      setEditData({
+                        ...editData,
+                        notes:
+                          e.target.value,
+                      })
+                    }
+
                     placeholder="Notes"
+
                     className="w-full px-2 py-1 border rounded text-xs border-input bg-background"
                   />
+
                   <div className="flex gap-2">
+
                     <button
-                      onClick={() => handleSaveEdit(item.id)}
-                      className="flex-1 bg-primary text-primary-foreground px-2 py-1 rounded text-xs hover:bg-primary/90"
+                      onClick={() =>
+                        handleSaveEdit(
+                          item.id
+                        )
+                      }
+
+                      className="text-green-600 hover:text-green-700"
                     >
-                      <Check className="w-3 h-3 inline mr-1" /> Save
+                      <Check className="w-4 h-4" />
                     </button>
+
                     <button
-                      onClick={handleCancelEdit}
-                      className="flex-1 bg-secondary text-secondary-foreground px-2 py-1 rounded text-xs hover:bg-secondary/80"
+                      onClick={
+                        handleCancelEdit
+                      }
+
+                      className="text-red-600 hover:text-red-700"
                     >
-                      <X className="w-3 h-3 inline mr-1" /> Cancel
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
+
               ) : (
+
                 <>
                   <div className="flex justify-between items-start">
+
                     <div>
-                      <p className="font-medium">{item.company}</p>
-                      <p className="text-xs text-muted-foreground">{item.date}</p>
+
+                      <p className="font-medium">
+                        {item.company}
+                      </p>
+
+                      <p className="text-xs text-muted-foreground">
+                        {item.date}
+                      </p>
                     </div>
-                    <div className="flex gap-1">
-                      <button onClick={() => handleEdit(item)} className="text-primary hover:text-primary/80 p-1">
+
+                    <div className="flex gap-2">
+
+                      <button
+                        onClick={() =>
+                          handleEdit(item)
+                        }
+
+                        className="text-blue-600 hover:text-blue-700"
+                      >
                         <Edit2 className="w-4 h-4" />
                       </button>
+
                       <button
-                        onClick={() => handleDelete(item.id)}
-                        className="text-destructive hover:text-destructive/80 p-1"
+                        onClick={() =>
+                          handleDelete(
+                            item.id
+                          )
+                        }
+
+                        className="text-red-600 hover:text-red-700"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                  <p className="font-semibold text-primary">{item.kwh} kWh</p>
-                  {item.notes && <p className="text-muted-foreground">{item.notes}</p>}
+
+                  <div className="flex justify-between items-center">
+
+                    <span className="font-semibold">
+                      {Number(
+                        item.kwh
+                      ).toFixed(2)}{" "}
+                      kWh
+                    </span>
+
+                    {item.notes && (
+                      <span className="text-xs text-muted-foreground">
+                        {item.notes}
+                      </span>
+                    )}
+                  </div>
                 </>
               )}
             </div>
