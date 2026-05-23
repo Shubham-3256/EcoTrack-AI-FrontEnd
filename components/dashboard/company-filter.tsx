@@ -19,7 +19,7 @@ export function CompanyFilter({ onSelectCompany, onRefresh }: CompanyFilterProps
     try {
       setLoading(true)
       const token = localStorage.getItem("token")
-      const res = await fetch("/api/companies", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/companies`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       if (!res.ok) throw new Error("Failed to fetch companies")

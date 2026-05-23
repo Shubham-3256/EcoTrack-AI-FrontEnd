@@ -130,7 +130,7 @@ export function EnergyCsvUpload({ onImportComplete }: EnergyCsvUploadProps) {
     for (let i = 0; i < parsedRows.length; i++) {
       const row = parsedRows[i]
       try {
-        const res = await fetch("/api/save-energy-usage", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/save-energy-usage`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

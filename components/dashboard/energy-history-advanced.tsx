@@ -39,7 +39,7 @@ if (dateFrom) params.append("from", dateFrom)
 if (dateTo) params.append("to", dateTo)
 
 const qs = params.toString()
-const url = `/api/history${qs ? `?${qs}` : ""}`
+const url = `${process.env.NEXT_PUBLIC_API_BASE}/history${qs ? `?${qs}` : ""}`
 
 const res = await fetch(url, {
   headers: { Authorization: `Bearer ${token}` },
@@ -64,7 +64,7 @@ const res = await fetch(url, {
     if (!confirm("Delete this record?")) return
     try {
       const token = localStorage.getItem("token")
-      const res = await fetch("/api/delete-energy-usage", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/delete-energy-usage`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -88,7 +88,7 @@ const res = await fetch(url, {
   const handleSaveEdit = async (id: number) => {
     try {
       const token = localStorage.getItem("token")
-      const res = await fetch("/api/update-energy-usage", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/update-energy-usage`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

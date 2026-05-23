@@ -26,7 +26,7 @@ export function EnergyForm({ onSuccess }: EnergyFormProps) {
 
     try {
       const token = localStorage.getItem("token")
-      const res = await fetch("/api/save-energy-usage", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/save-energy-usage`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

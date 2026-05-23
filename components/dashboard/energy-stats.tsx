@@ -34,7 +34,7 @@ export function EnergyStats({
 if (selectedCompany) params.append("company", selectedCompany)
 
 const qs = params.toString()
-const url = `/api/history${qs ? `?${qs}` : ""}`
+const url = `${process.env.NEXT_PUBLIC_API_BASE}/history${qs ? `?${qs}` : ""}`
 
 const res = await fetch(url, {
   headers: { Authorization: `Bearer ${token}` },
@@ -52,7 +52,7 @@ const res = await fetch(url, {
         const totalKwh = data.reduce((sum: number, item: any) => sum + item.kwh, 0)
 
         // Calculate emissions using average factor (0.42 kg CO2/kWh)
-        const emissionResponse = await fetch("/api/calculate-emission", {
+        const emissionResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/calculate-emission`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ kwh: totalKwh }),

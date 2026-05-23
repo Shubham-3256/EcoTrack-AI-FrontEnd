@@ -86,7 +86,7 @@ const historyRes = await fetch(historyUrl, {
         // 2) Fetch predictions
         let predictions: Prediction[] = []
         try {
-          const predictRes = await fetch("/api/predict-trend", {
+          const predictRes = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/predict-trend`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

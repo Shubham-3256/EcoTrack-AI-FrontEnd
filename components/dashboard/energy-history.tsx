@@ -21,7 +21,7 @@ export function EnergyHistory({ refreshTrigger }: { refreshTrigger: number }) {
     const fetchHistory = async () => {
       try {
         const token = localStorage.getItem("token")
-        const res = await fetch("/api/history", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/history`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         if (!res.ok) throw new Error("Failed to fetch")
@@ -43,7 +43,7 @@ export function EnergyHistory({ refreshTrigger }: { refreshTrigger: number }) {
     if (!confirm("Delete this record?")) return
     try {
       const token = localStorage.getItem("token")
-      const res = await fetch("/api/delete-energy-usage", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/delete-energy-usage`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
