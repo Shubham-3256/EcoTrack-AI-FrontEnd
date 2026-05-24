@@ -7,11 +7,12 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
-import { AlertCircle, Loader2 } from "lucide-react"
-
+import { AlertCircle, Loader2, Eye, EyeOff } from "lucide-react"
+import Link from "next/link"
 export function LoginForm() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -34,8 +35,7 @@ export function LoginForm() {
       }
 
       const data = await res.json()
-      localStorage.setItem("token", data.token)
-      router.push("/dashboard")
+      router.push("/auth/login")
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
@@ -63,15 +63,40 @@ export function LoginForm() {
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Password</label>
-          <Input
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </div>
+  <div className="flex items-center justify-between">
+    <label className="text-sm font-medium">Password</label>
+
+    <Link
+      href="/auth/forgot-password"
+      className="text-xs text-primary hover:underline"
+    >
+      Forgot Password?
+    </Link>
+  </div>
+
+  <div className="relative">
+    <Input
+      type={showPassword ? "text" : "password"}
+      placeholder="••••••••"
+      value={password}
+      onChange={(e) => setPassword(e.target.value)}
+      required
+      className="pr-10"
+    />
+
+    <button
+      type="button"
+      onClick={() => setShowPassword(!showPassword)}
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+    >
+      {showPassword ? (
+        <EyeOff className="w-4 h-4" />
+      ) : (
+        <Eye className="w-4 h-4" />
+      )}
+    </button>
+  </div>
+</div>
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Sign In"}
         </Button>

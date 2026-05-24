@@ -7,12 +7,12 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
-import { AlertCircle, Loader2 } from "lucide-react"
-
+import { AlertCircle, Loader2, Eye, EyeOff } from "lucide-react"
 export function RegisterForm() {
   const [email, setEmail] = useState("")
   const [name, setName] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -41,8 +41,7 @@ export function RegisterForm() {
       }
 
       const data = await res.json()
-      localStorage.setItem("token", data.token)
-      router.push("/dashboard")
+      router.push("/auth/login")
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
@@ -74,16 +73,35 @@ export function RegisterForm() {
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Password</label>
-          <Input
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
-        </div>
+  <label className="text-sm font-medium">Password</label>
+
+  <div className="relative">
+    <Input
+      type={showPassword ? "text" : "password"}
+      placeholder="••••••••"
+      value={password}
+      onChange={(e) => setPassword(e.target.value)}
+      required
+      className="pr-10"
+    />
+
+    <button
+      type="button"
+      onClick={() => setShowPassword(!showPassword)}
+      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+    >
+      {showPassword ? (
+        <EyeOff className="w-4 h-4" />
+      ) : (
+        <Eye className="w-4 h-4" />
+      )}
+    </button>
+  </div>
+
+  <p className="text-xs text-muted-foreground">
+    Minimum 8 characters
+  </p>
+</div>
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Account"}
         </Button>
