@@ -35,7 +35,10 @@ export function LoginForm() {
       }
 
       const data = await res.json()
-      router.push("/auth/login")
+
+      localStorage.setItem("token", data.token)
+
+      router.push("/dashboard")
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred")
     } finally {
