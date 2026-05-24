@@ -1,14 +1,15 @@
 "use client"
 
+import type React from "react"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { sendPasswordResetEmail } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 import { Leaf, Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:5000"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail]     = useState("")
@@ -32,35 +33,36 @@ export default function ForgotPasswordPage() {
     setLoading(true)
 
     try {
-      // The backend generates the Firebase reset link and sends it
-      // via Resend — much more reliable than Firebase's default sender.
-      const res = await fetch(`${API_BASE}/auth/send-reset-email`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ email: trimmed }),
+      await sendPasswordResetEmail(auth, trimmed, {
+        // After the user resets their password, Firebase redirects here
+        url: `${window.location.origin}/auth/login`,
+        handleCodeInApp: false,
       })
 
-      const data = await res.json()
-
-      if (!res.ok) {
-        const msg =
-          data.error === "email_service_not_configured"
-            ? "Email service is not configured. Please contact support."
-            : data.error === "failed_to_generate_link"
-            ? "Could not generate a reset link. Please try again."
-            : data.error ?? "Something went wrong. Please try again."
-        setError(msg)
-        return
-      }
-
-      // Always show a generic confirmation so we don't reveal account existence
       setMessage(
-        "If that email is registered, a password reset link has been sent. Check your inbox (and spam folder)."
+        "Reset email sent! Check your inbox (and spam folder). Redirecting to login…"
       )
 
       setTimeout(() => router.push("/auth/login"), 4000)
-    } catch {
-      setError("Network error. Please check your connection and try again.")
+    } catch (err: unknown) {
+      // Map Firebase error codes to readable messages
+      const code = (err as { code?: string })?.code ?? ""
+
+      if (code === "auth/user-not-found") {
+        // Don't reveal account existence — show the same success message
+        setMessage(
+          "Reset email sent! Check your inbox (and spam folder). Redirecting to login…"
+        )
+        setTimeout(() => router.push("/auth/login"), 4000)
+      } else if (code === "auth/invalid-email") {
+        setError("That doesn't look like a valid email address.")
+      } else if (code === "auth/too-many-requests") {
+        setError("Too many attempts. Please wait a few minutes and try again.")
+      } else {
+        setError(
+          err instanceof Error ? err.message : "Something went wrong. Please try again."
+        )
+      }
     } finally {
       setLoading(false)
     }
@@ -70,7 +72,6 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen bg-gradient-to-br from-primary/10 to-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
 
-        {/* Header */}
         <div className="mb-8 text-center">
           <Link href="/" className="flex items-center justify-center gap-2 mb-4">
             <Leaf className="w-8 h-8 text-primary" />
@@ -78,14 +79,13 @@ export default function ForgotPasswordPage() {
           </Link>
           <h1 className="text-2xl font-bold">Forgot Password</h1>
           <p className="text-muted-foreground mt-2">
-            We'll send a reset link to your inbox
+            Firebase will send a reset link to your inbox
           </p>
         </div>
 
         <Card className="p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
 
-            {/* Error banner */}
             {error && (
               <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 flex gap-2">
                 <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
@@ -93,7 +93,6 @@ export default function ForgotPasswordPage() {
               </div>
             )}
 
-            {/* Success banner */}
             {message && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-3 flex gap-2">
                 <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
@@ -134,6 +133,7 @@ export default function ForgotPasswordPage() {
             Sign in
           </Link>
         </p>
+
       </div>
     </div>
   )
