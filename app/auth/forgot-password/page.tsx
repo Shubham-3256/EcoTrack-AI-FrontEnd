@@ -1,6 +1,8 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Eye, EyeOff } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,11 +11,12 @@ export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
   const [otp, setOtp] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
-
+  const router = useRouter()
   const sendOTP = async () => {
     setLoading(true)
     setError("")
@@ -78,6 +81,10 @@ export default function ForgotPasswordPage() {
       }
 
       setMessage("Password reset successful")
+
+setTimeout(() => {
+  router.push("/auth/login")
+}, 1500)
     } catch (err) {
       setError(
         err instanceof Error
@@ -139,14 +146,32 @@ export default function ForgotPasswordPage() {
               }
             />
 
-            <Input
-              type="password"
-              placeholder="New Password"
-              value={password}
-              onChange={(e) =>
-                setPassword(e.target.value)
-              }
-            />
+<div className="relative">
+  <Input
+    type={showPassword ? "text" : "password"}
+    placeholder="New Password"
+    value={password}
+    onChange={(e) =>
+      setPassword(e.target.value)
+    }
+    className="pr-10"
+  />
+
+  <button
+    type="button"
+    onClick={() =>
+      setShowPassword(!showPassword)
+    }
+    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+  >
+    {showPassword ? (
+      <EyeOff className="w-4 h-4" />
+    ) : (
+      <Eye className="w-4 h-4" />
+    )}
+  </button>
+</div>
+
 
             <Button
               className="w-full"
