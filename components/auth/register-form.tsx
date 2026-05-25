@@ -3,14 +3,11 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-
 import {
   createUserWithEmailAndPassword,
   updateProfile,
 } from "firebase/auth"
-
 import { auth } from "@/lib/firebase"
-
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
@@ -38,37 +35,41 @@ export function RegisterForm() {
     setLoading(true)
 
     try {
-      // 1. Create the Firebase user
+      // 1. Create Firebase user
       const credential = await createUserWithEmailAndPassword(
         auth,
         email.trim().toLowerCase(),
         password,
       )
 
-      // 2. Persist the display name so Firebase (and the backend's
-      //    decoded token) carry it — this is what was missing before.
+      // 2. Save display name
       if (name.trim()) {
         await updateProfile(credential.user, {
           displayName: name.trim(),
         })
       }
 
-      // 3. Firebase auto-signs the user in after creation, so go straight
-      //    to the dashboard — no need to hit /auth/login again.
-      router.push("/dashboard")
-    } catch (err: unknown) {
-      const msg =
-        err instanceof Error ? err.message : "Registration failed. Please try again."
+      // 3. Force-fetch the ID token so Firebase auth state is fully
+      //    committed before we navigate. Without this, the dashboard
+      //    auth guard sees no user and bounces back to login.
+      await credential.user.getIdToken(true)
 
-      // Translate Firebase error codes into human-readable messages
-      if (msg.includes("email-already-in-use")) {
+      // 4. Now it is safe to navigate
+      router.push("/dashboard")
+
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code ?? ""
+
+      if (code === "auth/email-already-in-use") {
         setError("An account with this email already exists. Try signing in instead.")
-      } else if (msg.includes("invalid-email")) {
+      } else if (code === "auth/invalid-email") {
         setError("Please enter a valid email address.")
-      } else if (msg.includes("weak-password")) {
+      } else if (code === "auth/weak-password") {
         setError("Password is too weak. Use at least 8 characters.")
       } else {
-        setError(msg)
+        setError(
+          err instanceof Error ? err.message : "Registration failed. Please try again."
+        )
       }
     } finally {
       setLoading(false)
@@ -86,7 +87,6 @@ export function RegisterForm() {
           </div>
         )}
 
-        {/* Name */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Name</label>
           <Input
@@ -97,7 +97,6 @@ export function RegisterForm() {
           />
         </div>
 
-        {/* Email */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Email</label>
           <Input
@@ -109,7 +108,6 @@ export function RegisterForm() {
           />
         </div>
 
-        {/* Password */}
         <div className="space-y-2">
           <label className="text-sm font-medium">Password</label>
           <div className="relative">
@@ -126,22 +124,18 @@ export function RegisterForm() {
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
             >
-              {showPassword ? (
-                <EyeOff className="w-4 h-4" />
-              ) : (
-                <Eye className="w-4 h-4" />
-              )}
+              {showPassword
+                ? <EyeOff className="w-4 h-4" />
+                : <Eye className="w-4 h-4" />}
             </button>
           </div>
           <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
         </div>
 
         <Button type="submit" className="w-full" disabled={loading}>
-          {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            "Create Account"
-          )}
+          {loading
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : "Create Account"}
         </Button>
 
       </form>
