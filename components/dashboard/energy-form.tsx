@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
+import { postJson } from "@/lib/api"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -67,15 +68,6 @@ export function EnergyForm({
 
       try {
 
-        const token =
-          localStorage.getItem("token")
-
-        if (!token) {
-          throw new Error(
-            "Authentication token missing"
-          )
-        }
-
         const trimmedCompany =
           company.trim()
 
@@ -111,53 +103,18 @@ export function EnergyForm({
           )
         }
 
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE}/save-energy-usage`,
-          {
-            method: "POST",
+        await postJson("/save-energy-usage", {
+          company:
+            trimmedCompany,
 
-            headers: {
-              "Content-Type":
-                "application/json",
+          date,
 
-              Authorization:
-                `Bearer ${token}`,
-            },
+          kwh:
+            parsedKwh,
 
-            body: JSON.stringify({
-              company:
-                trimmedCompany,
-
-              date,
-
-              kwh:
-                parsedKwh,
-
-              notes:
-                trimmedNotes || "",
-            }),
-          }
-        )
-
-        let data: any = {}
-
-        try {
-
-          data =
-            await res.json()
-
-        } catch {
-
-          data = {}
-        }
-
-        if (!res.ok) {
-
-          throw new Error(
-            data.error ||
-            "Failed to save energy usage"
-          )
-        }
+          notes:
+            trimmedNotes || "",
+        })
 
         // =========================
         // RESET

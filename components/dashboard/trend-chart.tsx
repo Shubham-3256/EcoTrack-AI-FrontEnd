@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { apiFetch } from "@/lib/api"
 
 import { Card } from "@/components/ui/card"
 
@@ -43,45 +44,20 @@ export function TrendChart() {
           setLoading(true)
           setError(null)
 
-          const token =
-            localStorage.getItem("token")
-
-          if (!token) {
-            throw new Error(
-              "Authentication token missing"
-            )
-          }
-
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_BASE}/predict-trend`,
-            {
-              method: "POST",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-
-                Authorization:
-                  `Bearer ${token}`,
-              },
-
-              body: JSON.stringify({
-                days: 7,
-              }),
-
-              signal:
-                controller.signal,
-            }
-          )
-
-          if (!res.ok) {
-            throw new Error(
-              `Prediction API failed (${res.status})`
-            )
-          }
-
           const data =
-            await res.json()
+            await apiFetch<{ predictions?: Prediction[] }>(
+              "/predict-trend",
+              {
+                method: "POST",
+
+                body: JSON.stringify({
+                  days: 7,
+                }),
+
+                signal:
+                  controller.signal,
+              }
+            )
 
           // FIXED CRASH
           setPredictions(

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { apiFetch } from "@/lib/api"
 
 import { Card } from "@/components/ui/card"
 
@@ -56,36 +57,14 @@ export function EnergyHistory({
           setLoading(true)
           setError(null)
 
-          const token =
-            localStorage.getItem("token")
-
-          if (!token) {
-            throw new Error(
-              "Authentication token missing"
-            )
-          }
-
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_BASE}/history`,
-            {
-              headers: {
-                Authorization:
-                  `Bearer ${token}`,
-              },
-
-              signal:
-                controller.signal,
-            }
-          )
-
-          if (!res.ok) {
-            throw new Error(
-              `History API failed (${res.status})`
-            )
-          }
-
           const data =
-            await res.json()
+            await apiFetch<EnergyUsage[]>(
+              "/history",
+              {
+                signal:
+                  controller.signal,
+              }
+            )
 
           if (!Array.isArray(data)) {
             throw new Error(
@@ -165,50 +144,16 @@ export function EnergyHistory({
 
         setDeletingId(id)
 
-        const token =
-          localStorage.getItem("token")
-
-        if (!token) {
-          throw new Error(
-            "Authentication token missing"
-          )
-        }
-
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_BASE}/delete-energy-usage`,
+        await apiFetch(
+          "/delete-energy-usage",
           {
             method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-
-              Authorization:
-                `Bearer ${token}`,
-            },
 
             body: JSON.stringify({
               id,
             }),
           }
         )
-
-        if (!res.ok) {
-
-          let body: any = {}
-
-          try {
-
-            body =
-              await res.json()
-
-          } catch {}
-
-          throw new Error(
-            body.error ||
-            "Failed to delete record"
-          )
-        }
 
         setHistory(
           history.filter(

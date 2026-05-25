@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { postJson } from "@/lib/api"
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -289,15 +290,6 @@ export function EnergyCsvUpload({
         setSuccessCount(0)
         setUploadProgress(0)
 
-        const token =
-          localStorage.getItem("token")
-
-        if (!token) {
-          throw new Error(
-            "Authentication token missing"
-          )
-        }
-
         let success = 0
 
         const uploadErrors: string[] =
@@ -314,58 +306,21 @@ export function EnergyCsvUpload({
 
           try {
 
-            const res =
-              await fetch(
-                `${process.env.NEXT_PUBLIC_API_BASE}/save-energy-usage`,
-                {
-                  method: "POST",
+            await postJson("/save-energy-usage", {
+              company:
+                row.company,
 
-                  headers: {
-                    "Content-Type":
-                      "application/json",
+              date:
+                row.date,
 
-                    Authorization:
-                      `Bearer ${token}`,
-                  },
+              kwh:
+                row.kwh,
 
-                  body: JSON.stringify({
-                    company:
-                      row.company,
+              notes:
+                row.notes,
+            })
 
-                    date:
-                      row.date,
-
-                    kwh:
-                      row.kwh,
-
-                    notes:
-                      row.notes,
-                  }),
-                }
-              )
-
-            if (!res.ok) {
-
-              let body: any = {}
-
-              try {
-
-                body =
-                  await res.json()
-
-              } catch {}
-
-              uploadErrors.push(
-                `Row ${i + 2}: ${
-                  body.error ||
-                  `failed (${res.status})`
-                }`
-              )
-
-            } else {
-
-              success++
-            }
+            success++
 
           } catch (err: any) {
 

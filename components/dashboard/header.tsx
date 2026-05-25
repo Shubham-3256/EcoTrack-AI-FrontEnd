@@ -1,14 +1,16 @@
 "use client"
 
 import { useRouter } from "next/navigation"
+import { signOut } from "firebase/auth"
+import { auth } from "@/lib/firebase"
 import { Button } from "@/components/ui/button"
 import { Leaf, LogOut } from "lucide-react"
 
 export function DashboardHeader({ user }: { user: any }) {
   const router = useRouter()
 
-  const handleLogout = () => {
-    localStorage.removeItem("token")
+  const handleLogout = async () => {
+    await signOut(auth)
     router.push("/")
   }
 
