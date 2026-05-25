@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
+import { apiFetch } from "@/lib/api"
 
 import { DashboardHeader } from "./header"
 import { EnergyStats } from "./energy-stats"
@@ -21,211 +22,101 @@ import { ExportButtons } from "./export-buttons"
 import { AlertSettingsCard } from "./alert-settings-card"
 
 import { Card } from "@/components/ui/card"
-
 import { AlertCircle } from "lucide-react"
 
 interface User {
   name?: string
   email?: string
-
   alert_email_enabled?: boolean
   alert_threshold_kwh?: number | null
 }
 
 export function Dashboard() {
-
   const router = useRouter()
 
-  const [loading, setLoading] =
-    useState(true)
+  // Firebase auth state from context — loading=true until Firebase
+  // has restored the session, user=null if not signed in
+  const { user: firebaseUser, loading: authLoading } = useAuth()
 
-  const [user, setUser] =
-    useState<User | null>(null)
+  const [dbUser, setDbUser]               = useState<User | null>(null)
+  const [userLoading, setUserLoading]     = useState(true)
+  const [error, setError]                 = useState<string | null>(null)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [selectedCompany, setSelectedCompany] = useState<string | null>(null)
+  const [dateFrom, setDateFrom]           = useState<string | null>(null)
+  const [dateTo, setDateTo]               = useState<string | null>(null)
 
-  const [error, setError] =
-    useState<string | null>(null)
-
-  const [refreshTrigger, setRefreshTrigger] =
-    useState(0)
-
-  const [selectedCompany, setSelectedCompany] =
-    useState<string | null>(null)
-
-  const [dateFrom, setDateFrom] =
-    useState<string | null>(null)
-
-  const [dateTo, setDateTo] =
-    useState<string | null>(null)
-
-  // =========================
-  // AUTH + USER FETCH
-  // =========================
-
+  // ── Auth guard + user fetch ──────────────────────────────────────────────
   useEffect(() => {
+    // Still waiting for Firebase to restore session — do nothing yet
+    if (authLoading) return
 
-    const controller =
-      new AbortController()
+    // Firebase confirmed: no user → redirect to login
+    if (!firebaseUser) {
+      router.push("/auth/login")
+      return
+    }
 
-    const loadUser =
-      async () => {
+    // Firebase user exists — fetch the DB profile via backend
+    const controller = new AbortController()
 
-        try {
+    const loadUser = async () => {
+      try {
+        setUserLoading(true)
+        setError(null)
 
-          setLoading(true)
-          setError(null)
-
-          const token =
-            localStorage.getItem("token")
-
-          // No token
-          if (!token) {
-
-            router.push("/auth/login")
-
-            return
-          }
-
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_BASE}/auth/me`,
-            {
-              headers: {
-                Authorization:
-                  `Bearer ${token}`,
-              },
-
-              signal:
-                controller.signal,
-            }
-          )
-
-          if (!res.ok) {
-
-            if (
-              res.status === 401
-            ) {
-
-              localStorage.removeItem(
-                "token"
-              )
-
-              router.push(
-                "/auth/login"
-              )
-
-              return
-            }
-
-            throw new Error(
-              `Authentication failed (${res.status})`
-            )
-          }
-
-          const data =
-            await res.json()
-
-          setUser(
-            data.user || null
-          )
-
-        } catch (err: any) {
-
-          if (
-            err?.name !==
-            "AbortError"
-          ) {
-
-            console.error(err)
-
-            setError(
-              err?.message ||
-              "Failed to load dashboard"
-            )
-          }
-
-        } finally {
-
-          setLoading(false)
+        // apiFetch automatically attaches the Firebase Bearer token
+        const data = await apiFetch<{ user: User }>("/auth/me", {
+          signal: controller.signal,
+        })
+        setDbUser(data.user ?? null)
+      } catch (err: any) {
+        if (err?.name !== "AbortError") {
+          console.error(err)
+          setError(err?.message || "Failed to load dashboard")
         }
+      } finally {
+        setUserLoading(false)
       }
+    }
 
     loadUser()
+    return () => controller.abort()
 
-    return () => {
-      controller.abort()
-    }
+  }, [authLoading, firebaseUser, router])
 
-  }, [router])
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  const refresh = () => setRefreshTrigger((n) => n + 1)
 
-  // =========================
-  // REFRESH
-  // =========================
-
-  const refresh = () => {
-
-    setRefreshTrigger(
-      (prev) => prev + 1
-    )
+  const clearDateFilter = () => {
+    setDateFrom(null)
+    setDateTo(null)
+    refresh()
   }
 
-  // =========================
-  // CLEAR DATE FILTER
-  // =========================
-
-  const clearDateFilter =
-    () => {
-
-      setDateFrom(null)
-
-      setDateTo(null)
-
-      refresh()
-    }
-
-  // =========================
-  // LOADING
-  // =========================
-
-  if (loading) {
-
+  // ── Loading states ───────────────────────────────────────────────────────
+  // Show spinner while Firebase restores session OR while fetching DB user
+  if (authLoading || userLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-
         <div className="text-center">
-
           <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-
-          <p className="text-muted-foreground">
-            Loading dashboard...
-          </p>
+          <p className="text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     )
   }
 
-  // =========================
-  // ERROR
-  // =========================
-
+  // ── Error ────────────────────────────────────────────────────────────────
   if (error) {
-
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-6">
-
         <Card className="p-6 max-w-md w-full">
-
           <div className="flex gap-3">
-
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-
             <div>
-
-              <h2 className="font-semibold text-red-500 mb-1">
-                Dashboard Error
-              </h2>
-
-              <p className="text-sm text-muted-foreground">
-                {error}
-              </p>
+              <h2 className="font-semibold text-red-500 mb-1">Dashboard Error</h2>
+              <p className="text-sm text-muted-foreground">{error}</p>
             </div>
           </div>
         </Card>
@@ -233,181 +124,97 @@ export function Dashboard() {
     )
   }
 
-  // =========================
-  // UI
-  // =========================
-
+  // ── UI ───────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background">
 
-      {/* Header */}
-      <DashboardHeader user={user} />
+      <DashboardHeader user={dbUser} />
 
-      {/* Main */}
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-8">
 
-        {/* Top stats */}
         <EnergyStats
           refreshTrigger={refreshTrigger}
-          selectedCompany={
-            selectedCompany || undefined
-          }
+          selectedCompany={selectedCompany || undefined}
         />
 
-        {/* Goals + AI tips */}
         <section className="grid lg:grid-cols-2 gap-6">
-
-          <GoalsCard
-            refreshTrigger={refreshTrigger}
-          />
-
-          <AiTipsCard
-            refreshTrigger={refreshTrigger}
-          />
+          <GoalsCard refreshTrigger={refreshTrigger} />
+          <AiTipsCard refreshTrigger={refreshTrigger} />
         </section>
 
-        {/* Filters */}
         <div className="grid lg:grid-cols-2 gap-6">
-
           <CompanyFilter
-            onSelectCompany={
-              setSelectedCompany
-            }
-
+            onSelectCompany={setSelectedCompany}
             onRefresh={refresh}
           />
-
           <DateRangeFilter
-            onFilter={(
-              from,
-              to
-            ) => {
-
+            onFilter={(from, to) => {
               setDateFrom(from)
-
               setDateTo(to)
             }}
           />
         </div>
 
-        {/* Filter summary */}
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm text-muted-foreground">
-
           <span>
-
             <span className="font-medium">
-              {selectedCompany ||
-                "All companies"}
+              {selectedCompany || "All companies"}
             </span>
-
             {dateFrom || dateTo
-              ? ` · ${dateFrom || "start"} – ${
-                  dateTo || "latest"
-                }`
+              ? ` · ${dateFrom || "start"} – ${dateTo || "latest"}`
               : " · No date filter"}
           </span>
-
           {(dateFrom || dateTo) && (
-
             <button
               className="underline underline-offset-2 hover:text-foreground"
-
-              onClick={
-                clearDateFilter
-              }
+              onClick={clearDateFilter}
             >
               Clear date range
             </button>
           )}
         </div>
 
-        {/* Data entry */}
         <section className="space-y-3">
-
-          <h2 className="text-base font-semibold">
-            Data Input
-          </h2>
-
+          <h2 className="text-base font-semibold">Data Input</h2>
           <div className="grid lg:grid-cols-2 gap-6">
-
-            <EnergyForm
-              onSuccess={refresh}
-            />
-
-            <EnergyCsvUpload
-              onImportComplete={
-                refresh
-              }
-            />
+            <EnergyForm onSuccess={refresh} />
+            <EnergyCsvUpload onImportComplete={refresh} />
           </div>
         </section>
 
-        {/* Predictions */}
-        <AdvancedPredictions
-          selectedCompany={
-            selectedCompany || undefined
-          }
-        />
+        <AdvancedPredictions selectedCompany={selectedCompany || undefined} />
 
-        {/* Analytics */}
         <AnalyticsDashboard
-          selectedCompany={
-            selectedCompany
-          }
-
+          selectedCompany={selectedCompany}
           dateFrom={dateFrom}
-
           dateTo={dateTo}
-
-          refreshTrigger={
-            refreshTrigger
-          }
+          refreshTrigger={refreshTrigger}
         />
 
-        {/* Insights */}
         <InsightsDashboard
-          selectedCompany={
-            selectedCompany
-          }
-
+          selectedCompany={selectedCompany}
           dateFrom={dateFrom}
-
           dateTo={dateTo}
         />
 
-        {/* Benchmarks */}
         <BenchmarksCard
           dateFrom={dateFrom}
           dateTo={dateTo}
-          refreshTrigger={
-            refreshTrigger
-          }
+          refreshTrigger={refreshTrigger}
         />
 
-        {/* Export + Alerts */}
         <section className="grid lg:grid-cols-2 gap-6">
-
           <ExportButtons />
-
-          <AlertSettingsCard
-            user={user}
-          />
+          <AlertSettingsCard user={dbUser} />
         </section>
 
-        {/* History */}
         <EnergyHistoryAdvanced
-          refreshTrigger={
-            refreshTrigger
-          }
-
-          selectedCompany={
-            selectedCompany
-          }
-
+          refreshTrigger={refreshTrigger}
+          selectedCompany={selectedCompany}
           dateFrom={dateFrom}
-
           dateTo={dateTo}
         />
+
       </main>
     </div>
   )
